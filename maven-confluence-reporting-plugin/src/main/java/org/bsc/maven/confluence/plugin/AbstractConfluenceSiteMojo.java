@@ -7,6 +7,9 @@ package org.bsc.maven.confluence.plugin;
 import java.io.File;
 import java.io.FileFilter;
 import java.net.URISyntaxException;
+import java.util.concurrent.Callable;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Unmarshaller;
@@ -17,6 +20,11 @@ import org.bsc.maven.reporting.model.SiteFactory;
 import org.codehaus.swizzle.confluence.Attachment;
 import org.codehaus.swizzle.confluence.Confluence;
 import org.codehaus.swizzle.confluence.Page;
+import org.codehaus.swizzle.confluence.SwizzleException;
+import rx.Observable;
+import rx.functions.Action1;
+import rx.functions.Func1;
+import rx.schedulers.Schedulers;
 
 /**
  *
@@ -68,58 +76,105 @@ public abstract class AbstractConfluenceSiteMojo extends AbstractConfluenceMojo 
         
     }
     
+    static class AttachmentPair {
+        
+        final Site.Attachment model;
+        final Attachment object;
+
+        public AttachmentPair(Site.Attachment model, Attachment object) {
+            this.model = model;
+            this.object = object;
+        }
+        public AttachmentPair() {
+            this( null, null);
+        }
+        
+        public final boolean isValid() {
+            return (model!=null && object !=null );
+        }
+    }
     /**
      * 
      * @param page
      * @param confluence
      * @param confluencePage 
      */
-    private void generateAttachments( Site.Page page,  Confluence confluence, Page confluencePage) /*throws MavenReportException*/ {
+    private void generateAttachments( Site.Page page,  final Confluence confluence, final Page confluencePage) /*throws MavenReportException*/ {
 
         getLog().info(String.format("generateAttachments pageId [%s]", confluencePage.getId()));
 
-        for( Site.Attachment attachment : page.getAttachments() ) {
+        Observable.from(page.getAttachments() )
+                .map(  new Func1<Site.Attachment, AttachmentPair>() {
+                    @Override
+                    public AttachmentPair call(final Site.Attachment attachment) {
+                        
+                        Attachment a = null;
+                        
+                        try {
+                            
+                            a = confluence.getAttachment(confluencePage.getId(), attachment.getName(), attachment.getVersion());
+                            
+                            
+                        } catch (SwizzleException ex) {
+                            getLog().warn(String.format("Error getting attachment [%s] from confluence: [%s]", attachment.getName(), ex.getMessage()));
 
-            Attachment confluenceAttachment = null;
-
-            try {
-                confluenceAttachment = confluence.getAttachment(confluencePage.getId(), attachment.getName(), attachment.getVersion());
-            } catch (Exception e) {
-                getLog().warn(String.format("Error getting attachment [%s] from confluence: [%s]", attachment.getName(), e.getMessage()));
-            }
-
-            if (confluenceAttachment != null) {
-
-
-                java.util.Date date = confluenceAttachment.getCreated();
-
-                if (date == null) {
-                    getLog().warn(String.format("creation date of attachments [%s] is undefined. It will be replaced! ", confluenceAttachment.getFileName()));
-                } else {
-                    if (attachment.hasBeenUpdatedFrom(date)) {
-                        getLog().info(String.format("attachment [%s] is more recent than the remote one. It will be replaced! ", confluenceAttachment.getFileName()));
-                    } else {
-                        getLog().info(String.format("attachment [%s] skipped! no updated detected", confluenceAttachment.getFileName()));
-                        continue;
-
+                            a = new Attachment();
+                            a.setFileName(attachment.getName());
+                            a.setContentType(attachment.getContentType());
+                        }
+                        
+                        return new AttachmentPair(attachment,a);
                     }
-                }
-            } else {
-                confluenceAttachment = new Attachment();
-                confluenceAttachment.setFileName(attachment.getName());
-                confluenceAttachment.setContentType(attachment.getContentType());
+                    
+                })
+                .filter( new Func1<AttachmentPair, Boolean>() {
+                    @Override
+                    public Boolean call(AttachmentPair tuple) {
+                        
+                        if( tuple.isValid() ) {
+                        
+                            final java.util.Date date = tuple.object.getCreated();
 
-            }
+                            if (date == null) {
+                                getLog().warn(String.format("creation date of attachments [%s] is undefined. It will be replaced! ", tuple.object.getFileName()));
+                                return true;
+                            } 
 
-            confluenceAttachment.setComment( attachment.getComment());
-            
-            try {
-                ConfluenceUtils.addAttchment(confluence, confluencePage, confluenceAttachment, attachment.getUri().toURL() );
-            } catch (Exception e) {
-                getLog().error(String.format("Error uploading attachment [%s] ", attachment.getName()), e);
-            }
+                            if (tuple.model.hasBeenUpdatedFrom(date)) {
+                                getLog().info(String.format("attachment [%s] is more recent than the remote one [%Tc]. It will be replaced! ", 
+                                            tuple.object.getFileName(),
+                                            date
+                                            ));
+                                return true;
+                            }
 
-        }
+                            getLog().info(String.format("attachment [%s] skipped! no updated detected", tuple.object.getFileName()));
+                        
+                        }
+                        else {
+                            getLog().info(String.format("attachment [%s] skipped! no updated detected", tuple.model.getName()));
+                            
+                        }
+
+                        return false;
+                    }
+                    
+                })
+                .onExceptionResumeNext( Observable.just(new AttachmentPair()) )
+                //.subscribeOn(Schedulers.io())
+                .subscribe( new Action1<AttachmentPair>() {
+                    @Override
+                    public void call(AttachmentPair t) {
+                        t.object.setComment( t.model.getComment());
+
+                        try {
+                            ConfluenceUtils.addAttchment(confluence, confluencePage, t.object, t.model.getUri().toURL() );
+                        } catch (Exception e) {
+                            getLog().error(String.format("Error uploading attachment [%s] ", t.model.getName()), e);
+                        }
+                    }                
+                })
+                ;
 
     }
     

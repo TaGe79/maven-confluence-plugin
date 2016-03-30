@@ -245,13 +245,20 @@ public class Site {
 
                 validateSource();
 
-                final java.net.URI _uri = super.getUri();
+                java.net.URI _uri = super.getUri();
 
-                if ( !_uri.isAbsolute() || "file".equals(_uri.getScheme())) {
-                    java.io.File f = new java.io.File(_uri);
+                if ( !_uri.isAbsolute() ) {
+                    
+                    _uri = super.site.getBasedir().toURI().resolve(_uri);
+                   
+                }
+                
+                if( "file".equals(_uri.getScheme()) ) {
+                    final java.io.File f = new java.io.File(_uri);
 
                     return f.lastModified() > date.getTime();
                 }
+                                
             }
 
             return true;
