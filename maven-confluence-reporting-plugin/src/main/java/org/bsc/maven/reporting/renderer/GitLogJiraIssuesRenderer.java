@@ -8,7 +8,13 @@ import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.reporting.AbstractMavenReportRenderer;
 import org.eclipse.jgit.lib.Repository;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Set;
 
 /**
  * @author ar
@@ -87,6 +93,7 @@ public class GitLogJiraIssuesRenderer extends AbstractMavenReportRenderer {
         try {
             log.debug("Try to open git repository.");
             repository = GitLogUtil.openRepository();
+            log.info(String.format("GIT Repository: %s", repository));
         } catch (Exception e) {
             log.warn("cannot open git repository  with error " + e);
         }

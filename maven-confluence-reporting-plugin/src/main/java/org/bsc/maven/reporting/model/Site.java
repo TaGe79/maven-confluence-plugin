@@ -4,20 +4,21 @@
  */
 package org.bsc.maven.reporting.model;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.util.List;
-import javax.xml.bind.annotation.XmlAttribute;
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlRootElement;
-import javax.xml.bind.annotation.XmlTransient;
 import org.apache.commons.io.IOUtils;
 import org.apache.maven.project.MavenProject;
 import org.bsc.markdown.ToConfluenceSerializer;
 import org.pegdown.PegDownProcessor;
 import org.pegdown.ast.Node;
 import org.pegdown.ast.RootNode;
+
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlTransient;
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.List;
 
 /**
  *
@@ -38,7 +39,8 @@ public class Site {
      * @return 
      */
     private static java.io.InputStream processMarkdown( final java.io.InputStream is ) throws IOException {
-        
+        System.out.println("Processing markdown file");
+
         final char[] contents = IOUtils.toCharArray(is);
         
         final PegDownProcessor p = new PegDownProcessor(ToConfluenceSerializer.extensions());
@@ -76,7 +78,7 @@ public class Site {
             }
 
             String scheme = uri.getScheme();
-
+        System.out.println(String.format("SITE - uri scheme: %s", scheme));
             if (scheme == null) {
                 throw new /*ProcessUri*/Exception( String.format("uri [%s] is invalid!", String.valueOf(uri) ));
             }
@@ -85,9 +87,10 @@ public class Site {
             final String source = uri.getRawSchemeSpecificPart();
 
             final String path =  uri.getRawPath();
-            
-            final boolean isMarkdown = (path !=null && path.endsWith(".md"));
+        System.out.println(String.format("SITE - uri path: %s", path));
 
+        final boolean isMarkdown = (path != null && path.endsWith(".md"));
+        System.out.println(String.format("SITE - is markdown: %s", isMarkdown));
             java.io.InputStream result = null;
 
             if ("classpath".equalsIgnoreCase(scheme)) {

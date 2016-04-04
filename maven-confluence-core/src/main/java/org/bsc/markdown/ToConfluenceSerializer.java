@@ -1,6 +1,7 @@
 package org.bsc.markdown;
 
-
+import org.bsc.functional.F;
+import org.pegdown.Extensions;
 import org.pegdown.ast.AbbreviationNode;
 import org.pegdown.ast.AnchorLinkNode;
 import org.pegdown.ast.AutoLinkNode;
@@ -42,10 +43,9 @@ import org.pegdown.ast.VerbatimNode;
 import org.pegdown.ast.Visitor;
 import org.pegdown.ast.WikiLinkNode;
 
-import static java.lang.String.format;
 import java.net.URISyntaxException;
-import org.bsc.functional.F;
-import org.pegdown.Extensions;
+
+import static java.lang.String.format;
 
 /*
  * To change this license header, choose License Headers in Project Properties.
@@ -306,7 +306,7 @@ public abstract class ToConfluenceSerializer implements Visitor {
 
     @Override
     public void visit(HeaderNode hn) {
-        _buffer.append( format( "h%s.", hn.getLevel()) );
+        _buffer.append(format("h%s. ", hn.getLevel()));
         visitChildren(hn);
         _buffer.append('\n');
     }
