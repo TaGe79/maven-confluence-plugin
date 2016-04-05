@@ -93,8 +93,11 @@ public class ServiceDependencyHistoryRenderer extends AbstractMavenReportRendere
     startTable();
 
     final ArrayList<String> headList = new ArrayList<String>(tableHeader);
+    Collections.sort(headList);
     headList.add(0, "Cloud version");
     tableHeader(headList.toArray(new String[]{}));
+
+    final Map<String, String> artifactVersionsBuffer = new HashMap<String, String>();
 
     for (final String cloudVersion : cloudVersions) {
       final Map<String, String> cloudDependencies = versionDeps.get(cloudVersion);
@@ -105,13 +108,31 @@ public class ServiceDependencyHistoryRenderer extends AbstractMavenReportRendere
       tableRow.add("*" + cloudVersion.replace("cloud-pom-", "") + "*");
       for (final String dependencyArtifactId : tableHeader) {
         final String version = cloudDependencies.get(dependencyArtifactId);
-        tableRow.add(version == null ? "---" : version);
+        final String lastVersion = artifactVersionsBuffer.get(dependencyArtifactId);
+        if (version != null && !version.equals(lastVersion)) {
+          tableRow.add(" {color:red}" + version + "{color} ");
+          artifactVersionsBuffer.put(dependencyArtifactId, version);
+        } else {
+          tableRow.add(version == null ? "---" : version);
+        }
       }
       tableRow(tableRow.toArray(new String[]{}));
     }
     endTable();
 
     endSection();
+  }
+
+  @Override
+  protected void tableRow(final String[] content) {
+    this.sink.tableRow();
+    if (content != null) {
+      for (int i = 0; i < content.length; ++i) {
+        this.tableCell(content[i], true);
+      }
+    }
+
+    this.sink.tableRow_();
   }
 
   @Override
