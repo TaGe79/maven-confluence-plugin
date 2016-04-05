@@ -1,10 +1,10 @@
 package org.bsc.maven.reporting.sink;
 
+import org.apache.maven.doxia.sink.SinkEventAttributes;
+import org.bsc.maven.plugin.confluence.ConfluenceUtils;
+
 import java.io.PrintWriter;
 import java.io.Writer;
-import org.apache.maven.doxia.sink.SinkEventAttributes;
-
-import org.bsc.maven.plugin.confluence.ConfluenceUtils;
 
 
 /**
@@ -52,7 +52,7 @@ public class ConfluenceSink extends org.apache.maven.doxia.sink.AbstractSink {
 
     @Override
     public void sectionTitle_(int i) {
-    }
+		}
 
     @Override
     public void list(SinkEventAttributes sea) {

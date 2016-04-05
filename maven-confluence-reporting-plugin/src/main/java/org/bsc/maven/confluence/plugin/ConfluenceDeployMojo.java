@@ -1,6 +1,5 @@
 package org.bsc.maven.confluence.plugin;
 
-import org.bsc.maven.reporting.sink.ConfluenceSink;
 import biz.source_code.miniTemplator.MiniTemplator;
 import biz.source_code.miniTemplator.MiniTemplator.VariableNotDefinedException;
 import com.github.qwazer.mavenplugins.gitlog.CalculateRuleForSinceTagName;
@@ -37,632 +36,633 @@ import org.bsc.maven.reporting.renderer.DependenciesRenderer;
 import org.bsc.maven.reporting.renderer.GitLogJiraIssuesRenderer;
 import org.bsc.maven.reporting.renderer.ProjectSummaryRenderer;
 import org.bsc.maven.reporting.renderer.ScmRenderer;
+import org.bsc.maven.reporting.renderer.ServiceDependencyHistoryRenderer;
+import org.bsc.maven.reporting.sink.ConfluenceSink;
 import org.codehaus.plexus.component.repository.ComponentDependency;
 import org.codehaus.plexus.i18n.I18N;
 import org.codehaus.swizzle.confluence.Confluence;
 import org.codehaus.swizzle.confluence.Page;
 
 import java.io.StringWriter;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 /**
- * 
  * Generate Project's documentation in confluence's wiki format and deploy it
- * 
  */
-@Mojo( name="deploy", threadSafe = true )
+@Mojo(name = "deploy", threadSafe = true)
 public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
 
-    private static final String PROJECT_DEPENDENCIES_VAR = "project.dependencies";
-    private static final String PROJECT_SCM_MANAGER_VAR = "project.scmManager";
-    private static final String PROJECT_SUMMARY_VAR = "project.summary";
-    private static final String GITLOG_JIRA_ISSUES_VAR = "gitlog.jiraIssues";
-    private static final String GITLOG_SINCE_TAG_NAME = "gitlog.sinceTagName";
+  private static final String POS_SERVICE_DEPENDENCIES = "pos.service.dependencies";
+  private static final String PROJECT_DEPENDENCIES_VAR = "project.dependencies";
+  private static final String PROJECT_SCM_MANAGER_VAR = "project.scmManager";
+  private static final String PROJECT_SUMMARY_VAR = "project.summary";
+  private static final String GITLOG_JIRA_ISSUES_VAR = "gitlog.jiraIssues";
+  private static final String GITLOG_SINCE_TAG_NAME = "gitlog.sinceTagName";
 
-    /**
-     * Local Repository.
-     *
-     */
-    @Parameter(defaultValue = "${localRepository}", required = true, readonly = true)
-    protected ArtifactRepository localRepository;
-    /**
-     */
-    @Component
-    protected ArtifactMetadataSource artifactMetadataSource;
-    /**
-     */
-    @Component
-    private ArtifactCollector collector;
-    /**
-     *
-     */
-    @Component(role=org.apache.maven.artifact.factory.ArtifactFactory.class)
-    protected ArtifactFactory factory;
-    /**
-     * Maven Project Builder.
-     *
-     */
-    @Component
-    private MavenProjectBuilder mavenProjectBuilder;
+  /**
+   * Local Repository.
+   */
+  @Parameter(defaultValue = "${localRepository}", required = true, readonly = true)
+  protected ArtifactRepository localRepository;
+  /**
+   */
+  @Component
+  protected ArtifactMetadataSource artifactMetadataSource;
+  /**
+   */
+  @Component
+  private ArtifactCollector collector;
+  /**
+   *
+   */
+  @Component(role = org.apache.maven.artifact.factory.ArtifactFactory.class)
+  protected ArtifactFactory factory;
+  /**
+   * Maven Project Builder.
+   */
+  @Component
+  private MavenProjectBuilder mavenProjectBuilder;
 
-    /**
-     * 
-     */
-    @Component
-    protected I18N i18n;
+  /**
+   *
+   */
+  @Component
+  protected I18N i18n;
 
-    /**
-     * 
-     */
-    //@Parameter(property = "project.reporting.outputDirectory")
-    @Parameter( property="project.build.directory/generated-site/confluence",required=true )
-    protected java.io.File outputDirectory;
+  /**
+   *
+   */
+  //@Parameter(property = "project.reporting.outputDirectory")
+  @Parameter(property = "project.build.directory/generated-site/confluence", required = true)
+  protected java.io.File outputDirectory;
 
-    /**
-     * Maven SCM Manager.
-     *
-     */
-    @Component(role=ScmManager.class)
-    protected ScmManager scmManager;
-    
-    /**
-     * The directory name to checkout right after the scm url
-     *
-     */
-    @Parameter(defaultValue = "${project.artifactId}", required = true)
-    private String checkoutDirectoryName;
-    /**
-     * The scm anonymous connection url.
-     *
-     */
-    @Parameter(defaultValue = "${project.scm.connection}")
-    private String anonymousConnection;
-    /**
-     * The scm developer connection url.
-     *
-     */
-    @Parameter(defaultValue = "${project.scm.developerConnection}")
-    private String developerConnection;
-    /**
-     * The scm web access url.
-     *
-     */
-    @Parameter(defaultValue = "${project.scm.url}")
-    private String webAccessUrl;
+  /**
+   * Maven SCM Manager.
+   */
+  @Component(role = ScmManager.class)
+  protected ScmManager scmManager;
 
-    /**
-     * Set to true for enabling substitution of ${gitlog.jiraIssues} build-in variable
-     *      
-     * @since 4.2
-     */
-    @Parameter(defaultValue = "false")
-    private Boolean gitLogJiraIssuesEnable;
+  /**
+   * The directory name to checkout right after the scm url
+   */
+  @Parameter(defaultValue = "${project.artifactId}", required = true)
+  private String checkoutDirectoryName;
+  /**
+   * The scm anonymous connection url.
+   */
+  @Parameter(defaultValue = "${project.scm.connection}")
+  private String anonymousConnection;
+  /**
+   * The scm developer connection url.
+   */
+  @Parameter(defaultValue = "${project.scm.developerConnection}")
+  private String developerConnection;
+  /**
+   * The scm web access url.
+   */
+  @Parameter(defaultValue = "${project.scm.url}")
+  private String webAccessUrl;
 
-    /**
-     * Parse git log commits since last occurrence of specified tag name
-     *      
-     * @since 4.2
-     */
-    @Parameter(defaultValue = "")
-    private String gitLogSinceTagName;
+  /**
+   * Set to true for enabling substitution of ${gitlog.jiraIssues} build-in variable
+   *
+   * @since 4.2
+   */
+  @Parameter(defaultValue = "false")
+  private Boolean gitLogJiraIssuesEnable;
 
-    /**
-     * Parse git log commits until first occurrence of specified tag name
-     * 
-     * @since 4.2
-     */
-    @Parameter(defaultValue = "")
-    private String gitLogUntilTagName;
+  @Parameter(defaultValue = "false")
+  private Boolean posServiceDependencies;
 
-    /**
-     * If specified, plugin will try to calculate and replace actual gitLogSinceTagName value
-     * based on current project version ${project.version} and provided rule.
-     * Possible values are
-     * <ul>
-     *     <li>NO_RULE</li>
-     *     <li>CURRENT_MAJOR_VERSION</li>
-     *     <li>CURRENT_MINOR_VERSION</li>
-     *     <li>LATEST_RELEASE_VERSION</li>
-     * </ul>
-     *      
-     * @since 4.2
-     */
-    @Parameter(defaultValue="NO_RULE")
-    private CalculateRuleForSinceTagName gitLogCalculateRuleForSinceTagName;
+  @Parameter(defaultValue = "")
+  private String gitPosServiceSinceTagName;
 
+  /**
+   * Parse git log commits since last occurrence of specified tag name
+   *
+   * @since 4.2
+   */
+  @Parameter(defaultValue = "")
+  private String gitLogSinceTagName;
 
-    /**
-     * Specify JIRA projects key to extract issues from gitlog
-     * By default it will try extract all strings that match pattern (A-Za-z+)-\d+
-     * 
-     * @since 4.2
-     */
-    @Parameter(defaultValue="")
-    private List<String> gitLogJiraProjectKeyList;
+  /**
+   * Parse git log commits until first occurrence of specified tag name
+   *
+   * @since 4.2
+   */
+  @Parameter(defaultValue = "")
+  private String gitLogUntilTagName;
 
-    /**
-     * The pattern to filter out tagName. Can be used for filter only version tags.
-     * 
-     * @since 4.2
-     */
-    @Parameter(defaultValue="")
-    private String gitLogTagNamesPattern;
+  /**
+   * If specified, plugin will try to calculate and replace actual gitLogSinceTagName value
+   * based on current project version ${project.version} and provided rule.
+   * Possible values are
+   * <ul>
+   * <li>NO_RULE</li>
+   * <li>CURRENT_MAJOR_VERSION</li>
+   * <li>CURRENT_MINOR_VERSION</li>
+   * <li>LATEST_RELEASE_VERSION</li>
+   * </ul>
+   *
+   * @since 4.2
+   */
+  @Parameter(defaultValue = "NO_RULE")
+  private CalculateRuleForSinceTagName gitLogCalculateRuleForSinceTagName;
 
-    /**
-     * Enable grouping by versions tag
-     *      
-     * @since 4.2
-     */
-    @Parameter(defaultValue="false")
-    private Boolean gitLogGroupByVersions;
+  /**
+   * Specify JIRA projects key to extract issues from gitlog
+   * By default it will try extract all strings that match pattern (A-Za-z+)-\d+
+   *
+   * @since 4.2
+   */
+  @Parameter(defaultValue = "")
+  private List<String> gitLogJiraProjectKeyList;
 
+  /**
+   * The pattern to filter out tagName. Can be used for filter only version tags.
+   *
+   * @since 4.2
+   */
+  @Parameter(defaultValue = "")
+  private String gitLogTagNamesPattern;
 
-    /**
-     * 
-     */
-    public ConfluenceDeployMojo() {
-        super();
+  /**
+   * Enable grouping by versions tag
+   *
+   * @since 4.2
+   */
+  @Parameter(defaultValue = "false")
+  private Boolean gitLogGroupByVersions;
+
+  /**
+   *
+   */
+  public ConfluenceDeployMojo() {
+    super();
+  }
+
+  @Override
+  public void execute() throws MojoExecutionException, MojoFailureException {
+    final Locale locale = Locale.getDefault();
+
+    getLog().info(String.format("executeReport isSnapshot = [%b] isRemoveSnapshots = [%b]", isSnapshot(), isRemoveSnapshots()));
+
+    loadUserInfoFromSettings();
+
+    Site site = null;
+
+    if (isSiteDescriptorValid()) {
+      site = super.createFromModel();
     }
-    
-    @Override
-    public void execute() throws MojoExecutionException, MojoFailureException {
-        final Locale locale = Locale.getDefault();
-        
-        getLog().info(String.format("executeReport isSnapshot = [%b] isRemoveSnapshots = [%b]", isSnapshot(), isRemoveSnapshots()));
 
-        loadUserInfoFromSettings();
+    if (site != null) {
+      site.setBasedir(getSiteDescriptor());
+      if (site.getHome().getName() != null) {
+        setTitle(site.getHome().getName());
+      } else {
+        site.getHome().setName(getTitle());
+      }
 
-        Site site = null;
-        
-        if( isSiteDescriptorValid() ) {
-            site = super.createFromModel();
-        }
-        
-        if( site != null ) {
-            site.setBasedir(getSiteDescriptor());
-            if( site.getHome().getName()!=null ) {
-                setTitle( site.getHome().getName() );
-            }
-            else {
-                site.getHome().setName(getTitle());
-            }
-            
-            java.util.List<String> _labels = getLabels();
-            if( !_labels.isEmpty() ) {
-                site.getLabels().addAll(_labels);
-            }
-        }
-        else {
-            site = super.createFromFolder();
+      java.util.List<String> _labels = getLabels();
+      if (!_labels.isEmpty()) {
+        site.getLabels().addAll(_labels);
+      }
+    } else {
+      site = super.createFromFolder();
 
-        }
-        site.print( System.out );
-
-        
-        super.initTemplateProperties();
-        
- 
-        
-        if ( project.getPackaging().equals( "maven-plugin" ) )
-       /////////////////////////////////////////////////////////////////
-       // PLUGIN
-       /////////////////////////////////////////////////////////////////
-        {
-            generatePluginReport(site, locale);
-        }
-        else
-       /////////////////////////////////////////////////////////////////
-       // PROJECT
-       /////////////////////////////////////////////////////////////////
-        {
-            generateProjectReport(site, locale);
-        }
-       
     }
-    
-    
-    private void generateProjectReport( final Site site, Locale locale ) throws MojoExecutionException
+    site.print(System.out);
+
+    super.initTemplateProperties();
+
+    if (project.getPackaging().equals("maven-plugin"))
+    /////////////////////////////////////////////////////////////////
+    // PLUGIN
+    /////////////////////////////////////////////////////////////////
     {
-        // Issue 32
-        final String title = getTitle();
-        //String title = project.getArtifactId() + "-" + project.getVersion();
-        
-        MiniTemplator t = null;
-        try {
-            t = new MiniTemplator.Builder()
-                    .setSkipUndefinedVars(true)
-                    .build( Site.processUri(site.getHome().getUri()), getCharset() );
-            
-        } catch (Exception e) {
-            final String msg = "error loading template";
-            getLog().error(msg, e);
-            throw new MojoExecutionException(msg, e);
-        }
-        
-        super.addStdProperties(t);
-
-       /////////////////////////////////////////////////////////////////
-       // SUMMARY
-       /////////////////////////////////////////////////////////////////
-       {
-
-            final StringWriter w = new StringWriter(10 * 1024);
-            final Sink sink = new ConfluenceSink(w);
-            //final Sink sink = getSink();
-
-            new ProjectSummaryRenderer(sink,
-                    project,
-                    i18n,
-                    locale).render();
-
-            try {
-                final String project_summary_var = w.toString();
-                
-                getProperties().put(PROJECT_SUMMARY_VAR,project_summary_var); // to share with children
-                
-                t.setVariable(PROJECT_SUMMARY_VAR, project_summary_var);
-                
-            } catch (VariableNotDefinedException e) {
-                getLog().warn(String.format("variable %s not defined in template", PROJECT_SUMMARY_VAR));
-            }
-
-        }
-
-       /////////////////////////////////////////////////////////////////
-       // SCM
-       /////////////////////////////////////////////////////////////////
-
-        {
-
-            final StringWriter w = new StringWriter(10 * 1024);
-            final Sink sink = new ConfluenceSink(w);
-            //final Sink sink = getSink();
-            final String scmTag = "";
-            
-            new ScmRenderer(getLog(),
-                    scmManager,
-                    sink,
-                    project.getModel(),
-                    i18n,
-                    locale,
-                    checkoutDirectoryName,
-                    webAccessUrl,
-                    anonymousConnection,
-                    developerConnection,
-                    scmTag).render();
-
-            try {
-                final String project_scm_var = w.toString();
-                
-                getProperties().put(PROJECT_SCM_MANAGER_VAR,project_scm_var); // to share with children
-                
-                t.setVariable(PROJECT_SCM_MANAGER_VAR, project_scm_var );
-                
-            } catch (VariableNotDefinedException e) {
-                getLog().warn(String.format("variable %s not defined in template", PROJECT_SCM_MANAGER_VAR));
-            }
-        }
-
-       /////////////////////////////////////////////////////////////////
-       // DEPENDENCIES
-       /////////////////////////////////////////////////////////////////
-
-        {
-            final StringWriter w = new StringWriter(10 * 1024);
-            final Sink sink = new ConfluenceSink(w);
-            //final Sink sink = getSink();
-
-            new DependenciesRenderer(sink,
-                    project,
-                    mavenProjectBuilder,
-                    localRepository,
-                    factory,
-                    i18n,
-                    locale,
-                    resolveProject(),
-                    getLog()).render();
-
-            try {
-                final String project_dependencies_var = w.toString();
-                
-                getProperties().put(PROJECT_DEPENDENCIES_VAR,project_dependencies_var); // to share with children
-
-                t.setVariable(PROJECT_DEPENDENCIES_VAR, project_dependencies_var);
-                
-            } catch (VariableNotDefinedException e) {
-                getLog().warn(String.format("variable %s not defined in template", PROJECT_DEPENDENCIES_VAR));
-            }
-        }
-
-
-
-        /////////////////////////////////////////////////////////////////
-        // CHANGELOG JIRA ISSUES
-        /////////////////////////////////////////////////////////////////
-        if (gitLogJiraIssuesEnable) {
-
-            {
-
-                final StringWriter w = new StringWriter(10 * 1024);
-                final Sink sink = new ConfluenceSink(w);
-                //final Sink sink = getSink();
-                String currentVersion = project.getVersion();
-
-                GitLogJiraIssuesRenderer gitLogJiraIssuesRenderer = new GitLogJiraIssuesRenderer(sink,
-                        gitLogSinceTagName,
-                        gitLogUntilTagName,
-                        gitLogJiraProjectKeyList,
-                        currentVersion,
-                        gitLogCalculateRuleForSinceTagName,
-                        gitLogTagNamesPattern,
-                        gitLogGroupByVersions,
-                        getLog());
-                gitLogJiraIssuesRenderer.render();
-
-                gitLogSinceTagName = gitLogJiraIssuesRenderer.getGitLogSinceTagName();
-
-                try {
-                    final String gitlog_jiraissues_var = w.toString();
-                    getProperties().put(GITLOG_JIRA_ISSUES_VAR, gitlog_jiraissues_var); // to share with children
-                    t.setVariable(GITLOG_JIRA_ISSUES_VAR, gitlog_jiraissues_var);
-
-                } catch (VariableNotDefinedException e) {
-                    getLog().info(String.format("variable %s not defined in template", GITLOG_JIRA_ISSUES_VAR));
-                }
-            }
-
-            try {
-                if (gitLogSinceTagName==null){
-                    gitLogSinceTagName="beginning of gitlog";
-                }
-                getProperties().put(GITLOG_SINCE_TAG_NAME, gitLogSinceTagName); // to share with children
-                t.setVariable(GITLOG_SINCE_TAG_NAME, gitLogSinceTagName);
-            } catch (VariableNotDefinedException e) {
-                getLog().debug(String.format("variable %s not defined in template", GITLOG_SINCE_TAG_NAME));
-            }
-
-        }
-
-        final String wiki = t.generateOutput();
-
-        super.confluenceExecute(  new ConfluenceTask() {
-
-            @Override
-            public void execute(Confluence confluence) throws Exception {
-        
-             if (!isSnapshot() && isRemoveSnapshots()) {
-                final String snapshot = title.concat("-SNAPSHOT");
-                getLog().info(String.format("removing page [%s]!", snapshot));
-                boolean deleted = ConfluenceUtils.removePage(confluence, getSpaceKey(), getParentPageTitle(), snapshot);
-
-                if (deleted) {
-                    getLog().info(String.format("Page [%s] has been removed!", snapshot));
-                }
-            }
-
-
-            Page confluencePage = ConfluenceUtils.getOrCreatePage(confluence, getSpaceKey(), getParentPageTitle(), title);
-
-            confluencePage.setContent(wiki);
-
-            confluencePage = confluence.storePage(confluencePage);
-
-            for( String label : site.getHome().getComputedLabels() ) {
-                
-                confluence.addLabelByName(label, Long.parseLong(confluencePage.getId()) );
-            }
-                               
-            generateChildren( confluence, site.getHome(), confluencePage, getSpaceKey(), title, title);
-           
-            
-            }
-        });
-
-         
+      generatePluginReport(site, locale);
+    } else
+    /////////////////////////////////////////////////////////////////
+    // PROJECT
+    /////////////////////////////////////////////////////////////////
+    {
+      generateProjectReport(site, locale);
     }
 
-   /**
-     * 
-     * @return
-     */
-    private ReportingResolutionListener resolveProject() {
-        Map managedVersions = null;
-        try {
-            managedVersions = createManagedVersionMap(project.getId(), project.getDependencyManagement());
-        } catch (ProjectBuildingException e) {
-            getLog().error("An error occurred while resolving project dependencies.", e);
-        }
+  }
 
-        ReportingResolutionListener listener = new ReportingResolutionListener();
+  private void generateProjectReport(final Site site, Locale locale) throws MojoExecutionException {
+    // Issue 32
+    final String title = getTitle();
+    //String title = project.getArtifactId() + "-" + project.getVersion();
+
+    MiniTemplator t = null;
+    try {
+      t = new MiniTemplator.Builder()
+        .setSkipUndefinedVars(true)
+        .build(Site.processUri(site.getHome().getUri()), getCharset());
+
+    } catch (Exception e) {
+      final String msg = "error loading template";
+      getLog().error(msg, e);
+      throw new MojoExecutionException(msg, e);
+    }
+
+    super.addStdProperties(t);
+
+    /////////////////////////////////////////////////////////////////
+    // SUMMARY
+    /////////////////////////////////////////////////////////////////
+    {
+
+      final StringWriter w = new StringWriter(10*1024);
+      final Sink sink = new ConfluenceSink(w);
+      //final Sink sink = getSink();
+
+      new ProjectSummaryRenderer(sink,
+        project,
+        i18n,
+        locale).render();
+
+      try {
+        final String project_summary_var = w.toString();
+
+        getProperties().put(PROJECT_SUMMARY_VAR, project_summary_var); // to share with children
+
+        t.setVariable(PROJECT_SUMMARY_VAR, project_summary_var);
+
+      } catch (VariableNotDefinedException e) {
+        getLog().warn(String.format("variable %s not defined in template", PROJECT_SUMMARY_VAR));
+      }
+
+    }
+
+    /////////////////////////////////////////////////////////////////
+    // SCM
+    /////////////////////////////////////////////////////////////////
+
+    {
+
+      final StringWriter w = new StringWriter(10*1024);
+      final Sink sink = new ConfluenceSink(w);
+      //final Sink sink = getSink();
+      final String scmTag = "";
+
+      new ScmRenderer(getLog(),
+        scmManager,
+        sink,
+        project.getModel(),
+        i18n,
+        locale,
+        checkoutDirectoryName,
+        webAccessUrl,
+        anonymousConnection,
+        developerConnection,
+        scmTag).render();
+
+      try {
+        final String project_scm_var = w.toString();
+
+        getProperties().put(PROJECT_SCM_MANAGER_VAR, project_scm_var); // to share with children
+
+        t.setVariable(PROJECT_SCM_MANAGER_VAR, project_scm_var);
+
+      } catch (VariableNotDefinedException e) {
+        getLog().warn(String.format("variable %s not defined in template", PROJECT_SCM_MANAGER_VAR));
+      }
+    }
+
+    /////////////////////////////////////////////////////////////////
+    // DEPENDENCIES
+    /////////////////////////////////////////////////////////////////
+
+    {
+      final StringWriter w = new StringWriter(10*1024);
+      final Sink sink = new ConfluenceSink(w);
+      //final Sink sink = getSink();
+
+      new DependenciesRenderer(sink,
+        project,
+        mavenProjectBuilder,
+        localRepository,
+        factory,
+        i18n,
+        locale,
+        resolveProject(),
+        getLog()).render();
+
+      try {
+        final String project_dependencies_var = w.toString();
+
+        getProperties().put(PROJECT_DEPENDENCIES_VAR, project_dependencies_var); // to share with children
+
+        t.setVariable(PROJECT_DEPENDENCIES_VAR, project_dependencies_var);
+
+      } catch (VariableNotDefinedException e) {
+        getLog().warn(String.format("variable %s not defined in template", PROJECT_DEPENDENCIES_VAR));
+      }
+    }
+
+    if (posServiceDependencies) {
+      final StringWriter w = new StringWriter(10*1024);
+      final Sink sink = new ConfluenceSink(w);
+
+      final ServiceDependencyHistoryRenderer posServiceVersionRenderer = new ServiceDependencyHistoryRenderer(sink,
+        project, gitPosServiceSinceTagName, getLog());
+      
+      posServiceVersionRenderer.render();
+
+      try {
+        final String gitlog_jiraissues_var = w.toString();
+        getProperties().put(POS_SERVICE_DEPENDENCIES, gitlog_jiraissues_var); // to share with children
+        t.setVariable(POS_SERVICE_DEPENDENCIES, gitlog_jiraissues_var);
+
+      } catch (VariableNotDefinedException e) {
+        getLog().info(String.format("variable %s not defined in template", POS_SERVICE_DEPENDENCIES));
+      }
+    }
+
+    /////////////////////////////////////////////////////////////////
+    // CHANGELOG JIRA ISSUES
+    /////////////////////////////////////////////////////////////////
+    if (gitLogJiraIssuesEnable) {
+
+      {
+
+        final StringWriter w = new StringWriter(10*1024);
+        final Sink sink = new ConfluenceSink(w);
+        //final Sink sink = getSink();
+        String currentVersion = project.getVersion();
+
+        GitLogJiraIssuesRenderer gitLogJiraIssuesRenderer = new GitLogJiraIssuesRenderer(sink,
+          gitLogSinceTagName,
+          gitLogUntilTagName,
+          gitLogJiraProjectKeyList,
+          currentVersion,
+          gitLogCalculateRuleForSinceTagName,
+          gitLogTagNamesPattern,
+          gitLogGroupByVersions,
+          getLog());
+        gitLogJiraIssuesRenderer.render();
+
+        gitLogSinceTagName = gitLogJiraIssuesRenderer.getGitLogSinceTagName();
 
         try {
-            collector.collect(project.getDependencyArtifacts(), project.getArtifact(), managedVersions,
-                    localRepository, project.getRemoteArtifactRepositories(), artifactMetadataSource, null,
-                    Collections.singletonList(listener));
-        } catch (ArtifactResolutionException e) {
-            getLog().error("An error occurred while resolving project dependencies.", e);
+          final String gitlog_jiraissues_var = w.toString();
+          getProperties().put(GITLOG_JIRA_ISSUES_VAR, gitlog_jiraissues_var); // to share with children
+          t.setVariable(GITLOG_JIRA_ISSUES_VAR, gitlog_jiraissues_var);
+
+        } catch (VariableNotDefinedException e) {
+          getLog().info(String.format("variable %s not defined in template", GITLOG_JIRA_ISSUES_VAR));
+        }
+      }
+
+      try {
+        if (gitLogSinceTagName == null) {
+          gitLogSinceTagName = "beginning of gitlog";
+        }
+        getProperties().put(GITLOG_SINCE_TAG_NAME, gitLogSinceTagName); // to share with children
+        t.setVariable(GITLOG_SINCE_TAG_NAME, gitLogSinceTagName);
+      } catch (VariableNotDefinedException e) {
+        getLog().debug(String.format("variable %s not defined in template", GITLOG_SINCE_TAG_NAME));
+      }
+
+    }
+
+    final String wiki = t.generateOutput();
+
+    super.confluenceExecute(new ConfluenceTask() {
+
+      @Override
+      public void execute(Confluence confluence) throws Exception {
+
+        if (!isSnapshot() && isRemoveSnapshots()) {
+          final String snapshot = title.concat("-SNAPSHOT");
+          getLog().info(String.format("removing page [%s]!", snapshot));
+          boolean deleted = ConfluenceUtils.removePage(confluence, getSpaceKey(), getParentPageTitle(), snapshot);
+
+          if (deleted) {
+            getLog().info(String.format("Page [%s] has been removed!", snapshot));
+          }
         }
 
-        return listener;
-    }
+        Page confluencePage = ConfluenceUtils.getOrCreatePage(confluence, getSpaceKey(), getParentPageTitle(), title);
 
-    /**
-     * 
-     * @param projectId
-     * @param dependencyManagement
-     * @return
-     * @throws ProjectBuildingException
-     */
-    private Map createManagedVersionMap(String projectId, DependencyManagement dependencyManagement) throws ProjectBuildingException {
-        Map map;
-        if (dependencyManagement != null && dependencyManagement.getDependencies() != null) {
-            map = new HashMap();
-            for (Dependency d : dependencyManagement.getDependencies()) {
-                try {
-                    VersionRange versionRange = VersionRange.createFromVersionSpec(d.getVersion());
-                    Artifact artifact = factory.createDependencyArtifact(d.getGroupId(), d.getArtifactId(),
-                            versionRange, d.getType(), d.getClassifier(),
-                            d.getScope());
-                    map.put(d.getManagementKey(), artifact);
-                } catch (InvalidVersionSpecificationException e) {
-                    throw new ProjectBuildingException(projectId, "Unable to parse version '" + d.getVersion()
-                            + "' for dependency '" + d.getManagementKey() + "': " + e.getMessage(), e);
-                }
-            }
-        } else {
-            map = Collections.EMPTY_MAP;
+        confluencePage.setContent(wiki);
+
+        confluencePage = confluence.storePage(confluencePage);
+
+        for (String label : site.getHome().getComputedLabels()) {
+
+          confluence.addLabelByName(label, Long.parseLong(confluencePage.getId()));
         }
-        return map;
+
+        generateChildren(confluence, site.getHome(), confluencePage, getSpaceKey(), title, title);
+
+      }
+    });
+
+  }
+
+  /**
+   * @return
+   */
+  private ReportingResolutionListener resolveProject() {
+    Map managedVersions = null;
+    try {
+      managedVersions = createManagedVersionMap(project.getId(), project.getDependencyManagement());
+    } catch (ProjectBuildingException e) {
+      getLog().error("An error occurred while resolving project dependencies.", e);
     }
 
-    public String getDescription(Locale locale) {
-        return "confluence";
+    ReportingResolutionListener listener = new ReportingResolutionListener();
+
+    try {
+      collector.collect(project.getDependencyArtifacts(), project.getArtifact(), managedVersions,
+        localRepository, project.getRemoteArtifactRepositories(), artifactMetadataSource, null,
+        Collections.singletonList(listener));
+    } catch (ArtifactResolutionException e) {
+      getLog().error("An error occurred while resolving project dependencies.", e);
     }
 
-    public String getOutputName() {
-        return "confluence";
-    }
+    return listener;
+  }
 
-    public String getName(Locale locale) {
-        return "confluence";
+  /**
+   * @param projectId
+   * @param dependencyManagement
+   *
+   * @return
+   *
+   * @throws ProjectBuildingException
+   */
+  private Map createManagedVersionMap(String projectId, DependencyManagement dependencyManagement) throws
+    ProjectBuildingException {
+    Map map;
+    if (dependencyManagement != null && dependencyManagement.getDependencies() != null) {
+      map = new HashMap();
+      for (Dependency d : dependencyManagement.getDependencies()) {
+        try {
+          VersionRange versionRange = VersionRange.createFromVersionSpec(d.getVersion());
+          Artifact artifact = factory.createDependencyArtifact(d.getGroupId(), d.getArtifactId(),
+            versionRange, d.getType(), d.getClassifier(),
+            d.getScope());
+          map.put(d.getManagementKey(), artifact);
+        } catch (InvalidVersionSpecificationException e) {
+          throw new ProjectBuildingException(projectId, "Unable to parse version '" + d.getVersion()
+                                                        + "' for dependency '" + d.getManagementKey() + "': " + e.getMessage(), e);
+        }
+      }
+    } else {
+      map = Collections.EMPTY_MAP;
     }
-    
-    
-    
-    
+    return map;
+  }
+
+  public String getDescription(Locale locale) {
+    return "confluence";
+  }
+
+  public String getOutputName() {
+    return "confluence";
+  }
+
+  public String getName(Locale locale) {
+    return "confluence";
+  }
+
 /////////////////////////////////////////////////////////
 ///    
 /// PLUGIN SECTION
 ///    
 /////////////////////////////////////////////////////////
-     //@Parameter( defaultValue="${project.build.directory}/generated-site/confluence",required=true )
-     //private String outputDirectory;
+  //@Parameter( defaultValue="${project.build.directory}/generated-site/confluence",required=true )
+  //private String outputDirectory;
 
-     @Parameter( defaultValue = "${localRepository}", required = true, readonly = true )
-     private ArtifactRepository local;    
-     
-     /**
-      * The set of dependencies for the current project
-      *
-      * @since 3.0
-      */
-     @Parameter( defaultValue = "${project.artifacts}", required = true, readonly = true )
-     private Set<Artifact> dependencies;
- 
-     /**
-      * List of Remote Repositories used by the resolver
-      *
-      * @since 3.0
-      */
-     @Parameter( defaultValue = "${project.remoteArtifactRepositories}", required = true, readonly = true )
-     private List<ArtifactRepository> remoteRepos;
-    
-     /**
-     * Mojo scanner tools.
-     *
-     */
-    //@MojoComponent
-    @Component
-    protected MojoScanner mojoScanner;
-    
-    
-     private static List<ComponentDependency>  toComponentDependencies(List<Dependency>   dependencies)
-     {
-         //return PluginUtils.toComponentDependencies( dependencies )
-         return GeneratorUtils.toComponentDependencies(dependencies);
-     }
-     
-    private void generatePluginReport( final Site site, Locale locale )  throws MojoExecutionException
-    {
-        
-        String goalPrefix = PluginDescriptor.getGoalPrefixFromArtifactId(project.getArtifactId());
-        final PluginDescriptor pluginDescriptor = new PluginDescriptor();
-        pluginDescriptor.setGroupId(project.getGroupId());
-        pluginDescriptor.setArtifactId(project.getArtifactId());
-        pluginDescriptor.setVersion(project.getVersion());
-        pluginDescriptor.setGoalPrefix(goalPrefix);
+  @Parameter(defaultValue = "${localRepository}", required = true, readonly = true)
+  private ArtifactRepository local;
 
-        try {
-            java.util.List deps = new java.util.ArrayList();
+  /**
+   * The set of dependencies for the current project
+   *
+   * @since 3.0
+   */
+  @Parameter(defaultValue = "${project.artifacts}", required = true, readonly = true)
+  private Set<Artifact> dependencies;
 
-            deps.addAll(toComponentDependencies(project.getRuntimeDependencies()));
-            deps.addAll(toComponentDependencies(project.getCompileDependencies()));
+  /**
+   * List of Remote Repositories used by the resolver
+   *
+   * @since 3.0
+   */
+  @Parameter(defaultValue = "${project.remoteArtifactRepositories}", required = true, readonly = true)
+  private List<ArtifactRepository> remoteRepos;
 
-            pluginDescriptor.setDependencies(deps);
-            pluginDescriptor.setDescription(project.getDescription());
+  /**
+   * Mojo scanner tools.
+   */
+  //@MojoComponent
+  @Component
+  protected MojoScanner mojoScanner;
 
-            PluginToolsRequest request = new DefaultPluginToolsRequest(project, pluginDescriptor);
-            request.setEncoding(getEncoding());
-            request.setLocal(local);
-            request.setRemoteRepos(remoteRepos);
-            request.setSkipErrorNoDescriptorsFound(false);
-            request.setDependencies(dependencies);
+  private static List<ComponentDependency> toComponentDependencies(List<Dependency> dependencies) {
+    //return PluginUtils.toComponentDependencies( dependencies )
+    return GeneratorUtils.toComponentDependencies(dependencies);
+  }
 
+  private void generatePluginReport(final Site site, Locale locale) throws MojoExecutionException {
 
-            try {
+    String goalPrefix = PluginDescriptor.getGoalPrefixFromArtifactId(project.getArtifactId());
+    final PluginDescriptor pluginDescriptor = new PluginDescriptor();
+    pluginDescriptor.setGroupId(project.getGroupId());
+    pluginDescriptor.setArtifactId(project.getArtifactId());
+    pluginDescriptor.setVersion(project.getVersion());
+    pluginDescriptor.setGoalPrefix(goalPrefix);
 
-                mojoScanner.populatePluginDescriptor(request);
+    try {
+      java.util.List deps = new java.util.ArrayList();
 
-            } catch (InvalidPluginDescriptorException e) {
-                // this is OK, it happens to lifecycle plugins. Allow generation to proceed.
-                getLog().warn(String.format("Plugin without mojos. %s\nMojoScanner:%s", e.getMessage(), mojoScanner.getClass()));
+      deps.addAll(toComponentDependencies(project.getRuntimeDependencies()));
+      deps.addAll(toComponentDependencies(project.getCompileDependencies()));
 
-            }
+      pluginDescriptor.setDependencies(deps);
+      pluginDescriptor.setDescription(project.getDescription());
 
-            // Generate the plugin's documentation
-            super.confluenceExecute(new ConfluenceTask() {
-                
-                @Override
-                public void execute(Confluence confluence) throws Exception {
+      PluginToolsRequest request = new DefaultPluginToolsRequest(project, pluginDescriptor);
+      request.setEncoding(getEncoding());
+      request.setLocal(local);
+      request.setRemoteRepos(remoteRepos);
+      request.setSkipErrorNoDescriptorsFound(false);
+      request.setDependencies(dependencies);
 
-                    outputDirectory.mkdirs();
+      try {
 
-                    getLog().info("speceKey=" + getSpaceKey() + " parentPageTitle=" + getParentPageTitle());
+        mojoScanner.populatePluginDescriptor(request);
 
-                    Page confluencePage = confluence.getPage(getSpaceKey(), getParentPageTitle());
+      } catch (InvalidPluginDescriptorException e) {
+        // this is OK, it happens to lifecycle plugins. Allow generation to proceed.
+        getLog().warn(String.format("Plugin without mojos. %s\nMojoScanner:%s", e.getMessage(), mojoScanner.getClass()));
 
-                    Generator generator =
-                            new PluginConfluenceDocGenerator(ConfluenceDeployMojo.this,
-                            confluence,
-                            confluencePage,
-                            templateWiki); /*PluginXdocGenerator()*/;
+      }
 
-                    PluginToolsRequest request = 
-                            new DefaultPluginToolsRequest(project, pluginDescriptor);
+      // Generate the plugin's documentation
+      super.confluenceExecute(new ConfluenceTask() {
 
-                    generator.execute(outputDirectory, request);
+        @Override
+        public void execute(Confluence confluence) throws Exception {
 
-                    for( String label : site.getHome().getComputedLabels() ) {
+          outputDirectory.mkdirs();
 
-                        confluence.addLabelByName(label, Long.parseLong(confluencePage.getId()) );
-                    }
+          getLog().info("speceKey=" + getSpaceKey() + " parentPageTitle=" + getParentPageTitle());
 
-                    // Issue 32
-                    final String title = getTitle();
-                    //String title = project.getArtifactId() + "-" + project.getVersion();
+          Page confluencePage = confluence.getPage(getSpaceKey(), getParentPageTitle());
 
-                    generateChildren(   confluence, 
-                                        site.getHome(), 
-                                        confluencePage, 
-                                        getSpaceKey(), 
-                                        title, 
-                                        title);
-                    //generateChildren(confluence, getSpaceKey(), title, title);
+          Generator generator =
+            new PluginConfluenceDocGenerator(ConfluenceDeployMojo.this,
+              confluence,
+              confluencePage,
+              templateWiki); /*PluginXdocGenerator()*/
+          ;
 
+          PluginToolsRequest request =
+            new DefaultPluginToolsRequest(project, pluginDescriptor);
 
-                }
-            });
+          generator.execute(outputDirectory, request);
 
-            // Write the overview
-            //PluginOverviewRenderer r = new PluginOverviewRenderer( getSink(), pluginDescriptor, locale );
-            //r.render();
-        } catch (ExtractionException e) {
-            throw new MojoExecutionException(
-                    String.format("Error extracting plugin descriptor: %s",
-                    e.getLocalizedMessage()),
-                    e);
+          for (String label : site.getHome().getComputedLabels()) {
+
+            confluence.addLabelByName(label, Long.parseLong(confluencePage.getId()));
+          }
+
+          // Issue 32
+          final String title = getTitle();
+          //String title = project.getArtifactId() + "-" + project.getVersion();
+
+          generateChildren(confluence,
+            site.getHome(),
+            confluencePage,
+            getSpaceKey(),
+            title,
+            title);
+          //generateChildren(confluence, getSpaceKey(), title, title);
+
         }
+      });
+
+      // Write the overview
+      //PluginOverviewRenderer r = new PluginOverviewRenderer( getSink(), pluginDescriptor, locale );
+      //r.render();
+    } catch (ExtractionException e) {
+      throw new MojoExecutionException(
+        String.format("Error extracting plugin descriptor: %s",
+          e.getLocalizedMessage()),
+        e);
     }
-    
-    
+  }
+
 }
