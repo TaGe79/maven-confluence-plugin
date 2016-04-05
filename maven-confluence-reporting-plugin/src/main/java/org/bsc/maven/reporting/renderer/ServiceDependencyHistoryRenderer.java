@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 /**
@@ -31,16 +32,20 @@ public class ServiceDependencyHistoryRenderer extends AbstractMavenReportRendere
   private final Log log;
   private String gitLogSinceTagName;
   private MavenProject rootProject;
+  private Properties serviceDocumentationMap;
 
   /**
    * Default constructor.
    */
-  public ServiceDependencyHistoryRenderer(Sink sink, MavenProject rootProject, String gitLogSinceTagName, Log log) {
+  public ServiceDependencyHistoryRenderer(Sink sink, MavenProject rootProject, String gitLogSinceTagName,
+                                          Properties serviceDocumentationMap,
+                                          Log log) {
     super(sink);
 
     this.gitLogSinceTagName = gitLogSinceTagName;
     this.log = log;
     this.rootProject = rootProject;
+    this.serviceDocumentationMap = serviceDocumentationMap;
   }
 
   private void formatPomFilesToString(Map<String, String> pomFiles) throws IOException,
@@ -78,6 +83,7 @@ public class ServiceDependencyHistoryRenderer extends AbstractMavenReportRendere
         final Map<String, String> nameToArtifactMap = new HashMap<String, String>();
         for (final Dependency dep : dependencies) {
           tableHeader.add(dep.getArtifactId());
+
           final String depVer = dep.getVersion().startsWith("${") ?
             pomModel.getProperties().getProperty(dep.getVersion().replace("${", "").replace("}", ""), "?") : dep.getVersion();
           nameToArtifactMap.put(dep.getArtifactId(), depVer);
@@ -87,13 +93,14 @@ public class ServiceDependencyHistoryRenderer extends AbstractMavenReportRendere
         log.error(String.format("Can not determine artifact versions for %s", cloudVersion));
         e.printStackTrace();
       }
-
     }
 
     startTable();
 
     final ArrayList<String> headList = new ArrayList<String>(tableHeader);
     Collections.sort(headList);
+    decorateArtifactNamesWithConfluenceDocLink(headList);
+
     headList.add(0, "Cloud version");
     tableHeader(headList.toArray(new String[]{}));
 
@@ -121,6 +128,27 @@ public class ServiceDependencyHistoryRenderer extends AbstractMavenReportRendere
     endTable();
 
     endSection();
+  }
+
+  private void decorateArtifactNamesWithConfluenceDocLink(final ArrayList<String> headList) {
+    for (int i = 0; i < headList.size(); i++) {
+      final String artifactName = headList.get(i);
+      final String serviceDocRef = (String) this.serviceDocumentationMap.get(artifactName);
+      if (serviceDocRef != null) {
+        headList.set(i, "[" + artifactName + "|" + serviceDocRef + "]");
+        continue;
+      }
+
+      if (!artifactName.startsWith("service-")) {
+        continue;
+      }
+
+      final String serviceName = artifactName.replace("service-", "").replace("back", "");
+
+      headList.set(i, "[" + artifactName + "|" +
+                      serviceName.substring(0, 1).toUpperCase() + serviceName.substring(1) + " Service]");
+
+    }
   }
 
   @Override
