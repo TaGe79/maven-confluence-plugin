@@ -139,7 +139,7 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
   @Parameter(defaultValue = "false")
   private Boolean posServiceDependencies;
 
-  @Parameter(defaultValue = "")
+  @Parameter
   private String gitPosServiceSinceTagName;
 
   /**
@@ -147,7 +147,7 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
    *
    * @since 4.2
    */
-  @Parameter(defaultValue = "")
+  @Parameter
   private String gitLogSinceTagName;
 
   /**
@@ -155,7 +155,7 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
    *
    * @since 4.2
    */
-  @Parameter(defaultValue = "")
+  @Parameter
   private String gitLogUntilTagName;
 
   /**
@@ -180,7 +180,7 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
    *
    * @since 4.2
    */
-  @Parameter(defaultValue = "")
+  @Parameter
   private List<String> gitLogJiraProjectKeyList;
 
   /**
@@ -188,7 +188,7 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
    *
    * @since 4.2
    */
-  @Parameter(defaultValue = "")
+  @Parameter
   private String gitLogTagNamesPattern;
 
   /**
@@ -196,7 +196,7 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
    *
    * @since 4.2
    */
-  @Parameter(defaultValue = "false")
+  @Parameter
   private Boolean gitLogGroupByVersions;
 
   /**
@@ -261,7 +261,7 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
     final String title = getTitle();
     //String title = project.getArtifactId() + "-" + project.getVersion();
 
-    MiniTemplator t = null;
+    final MiniTemplator t;
     try {
       t = new MiniTemplator.Builder()
         .setSkipUndefinedVars(true)
@@ -289,17 +289,7 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
         i18n,
         locale).render();
 
-      try {
-        final String project_summary_var = w.toString();
-
-        getProperties().put(PROJECT_SUMMARY_VAR, project_summary_var); // to share with children
-
-        t.setVariable(PROJECT_SUMMARY_VAR, project_summary_var);
-
-      } catch (VariableNotDefinedException e) {
-        getLog().warn(String.format("variable %s not defined in template", PROJECT_SUMMARY_VAR));
-      }
-
+      replaceMacroNameWithContent(t, w, PROJECT_SUMMARY_VAR);
     }
 
     /////////////////////////////////////////////////////////////////
@@ -325,16 +315,7 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
         developerConnection,
         scmTag).render();
 
-      try {
-        final String project_scm_var = w.toString();
-
-        getProperties().put(PROJECT_SCM_MANAGER_VAR, project_scm_var); // to share with children
-
-        t.setVariable(PROJECT_SCM_MANAGER_VAR, project_scm_var);
-
-      } catch (VariableNotDefinedException e) {
-        getLog().warn(String.format("variable %s not defined in template", PROJECT_SCM_MANAGER_VAR));
-      }
+      replaceMacroNameWithContent(t, w, PROJECT_SCM_MANAGER_VAR);
     }
 
     /////////////////////////////////////////////////////////////////
@@ -356,16 +337,7 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
         resolveProject(),
         getLog()).render();
 
-      try {
-        final String project_dependencies_var = w.toString();
-
-        getProperties().put(PROJECT_DEPENDENCIES_VAR, project_dependencies_var); // to share with children
-
-        t.setVariable(PROJECT_DEPENDENCIES_VAR, project_dependencies_var);
-
-      } catch (VariableNotDefinedException e) {
-        getLog().warn(String.format("variable %s not defined in template", PROJECT_DEPENDENCIES_VAR));
-      }
+      replaceMacroNameWithContent(t, w, PROJECT_DEPENDENCIES_VAR);
     }
 
     if (posServiceDependencies) {
@@ -374,17 +346,10 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
 
       final ServiceDependencyHistoryRenderer posServiceVersionRenderer = new ServiceDependencyHistoryRenderer(sink,
         project, gitPosServiceSinceTagName, getLog());
-      
+
       posServiceVersionRenderer.render();
 
-      try {
-        final String gitlog_jiraissues_var = w.toString();
-        getProperties().put(POS_SERVICE_DEPENDENCIES, gitlog_jiraissues_var); // to share with children
-        t.setVariable(POS_SERVICE_DEPENDENCIES, gitlog_jiraissues_var);
-
-      } catch (VariableNotDefinedException e) {
-        getLog().info(String.format("variable %s not defined in template", POS_SERVICE_DEPENDENCIES));
-      }
+      replaceMacroNameWithContent(t, w, POS_SERVICE_DEPENDENCIES);
     }
 
     /////////////////////////////////////////////////////////////////
@@ -412,14 +377,7 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
 
         gitLogSinceTagName = gitLogJiraIssuesRenderer.getGitLogSinceTagName();
 
-        try {
-          final String gitlog_jiraissues_var = w.toString();
-          getProperties().put(GITLOG_JIRA_ISSUES_VAR, gitlog_jiraissues_var); // to share with children
-          t.setVariable(GITLOG_JIRA_ISSUES_VAR, gitlog_jiraissues_var);
-
-        } catch (VariableNotDefinedException e) {
-          getLog().info(String.format("variable %s not defined in template", GITLOG_JIRA_ISSUES_VAR));
-        }
+        replaceMacroNameWithContent(t, w, GITLOG_JIRA_ISSUES_VAR);
       }
 
       try {
@@ -469,9 +427,17 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
 
   }
 
-  /**
-   * @return
-   */
+  private void replaceMacroNameWithContent(final MiniTemplator t, final StringWriter w, final String templateMacro) {
+    try {
+      final String content = w.toString();
+      getProperties().put(templateMacro, content); // to share with children
+      t.setVariable(templateMacro, content);
+
+    } catch (VariableNotDefinedException e) {
+      getLog().info(String.format("variable %s not defined in template", templateMacro));
+    }
+  }
+
   private ReportingResolutionListener resolveProject() {
     Map managedVersions = null;
     try {
@@ -493,14 +459,6 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
     return listener;
   }
 
-  /**
-   * @param projectId
-   * @param dependencyManagement
-   *
-   * @return
-   *
-   * @throws ProjectBuildingException
-   */
   private Map createManagedVersionMap(String projectId, DependencyManagement dependencyManagement) throws
     ProjectBuildingException {
     Map map;
@@ -512,6 +470,7 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
           Artifact artifact = factory.createDependencyArtifact(d.getGroupId(), d.getArtifactId(),
             versionRange, d.getType(), d.getClassifier(),
             d.getScope());
+          //noinspection unchecked
           map.put(d.getManagementKey(), artifact);
         } catch (InvalidVersionSpecificationException e) {
           throw new ProjectBuildingException(projectId, "Unable to parse version '" + d.getVersion()
@@ -575,6 +534,7 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
     return GeneratorUtils.toComponentDependencies(dependencies);
   }
 
+  @SuppressWarnings("unchecked")
   private void generatePluginReport(final Site site, Locale locale) throws MojoExecutionException {
 
     String goalPrefix = PluginDescriptor.getGoalPrefixFromArtifactId(project.getArtifactId());
@@ -619,7 +579,6 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
           outputDirectory.mkdirs();
 
           getLog().info("speceKey=" + getSpaceKey() + " parentPageTitle=" + getParentPageTitle());
-
           Page confluencePage = confluence.getPage(getSpaceKey(), getParentPageTitle());
 
           Generator generator =
@@ -627,7 +586,6 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
               confluence,
               confluencePage,
               templateWiki); /*PluginXdocGenerator()*/
-          ;
 
           PluginToolsRequest request =
             new DefaultPluginToolsRequest(project, pluginDescriptor);
