@@ -49,6 +49,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 /**
@@ -199,6 +200,9 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
   @Parameter
   private Boolean gitLogGroupByVersions;
 
+  @Parameter
+  private Properties serviceDocumentationMap;
+
   /**
    *
    */
@@ -257,6 +261,7 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
   }
 
   private void generateProjectReport(final Site site, Locale locale) throws MojoExecutionException {
+    final ReportingResolutionListener resolvedProjectListener = resolveProject();
     // Issue 32
     final String title = getTitle();
     //String title = project.getArtifactId() + "-" + project.getVersion();
@@ -334,7 +339,7 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
         factory,
         i18n,
         locale,
-        resolveProject(),
+        resolvedProjectListener,
         getLog()).render();
 
       replaceMacroNameWithContent(t, w, PROJECT_DEPENDENCIES_VAR);
@@ -345,7 +350,7 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
       final Sink sink = new ConfluenceSink(w);
 
       final ServiceDependencyHistoryRenderer posServiceVersionRenderer = new ServiceDependencyHistoryRenderer(sink,
-        project, gitPosServiceSinceTagName, getLog());
+        project, gitPosServiceSinceTagName, serviceDocumentationMap, getLog());
 
       posServiceVersionRenderer.render();
 
