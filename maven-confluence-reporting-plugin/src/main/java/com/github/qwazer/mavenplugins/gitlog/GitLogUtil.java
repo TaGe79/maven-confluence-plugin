@@ -4,15 +4,20 @@ import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.lib.ObjectLoader;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.lib.RepositoryBuilder;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevObject;
 import org.eclipse.jgit.revwalk.RevWalk;
+import org.eclipse.jgit.treewalk.TreeWalk;
+import org.eclipse.jgit.treewalk.filter.PathFilter;
+import org.eclipse.jgit.util.IO;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -117,6 +122,48 @@ public class GitLogUtil {
     Iterable<RevCommit> commits = git.log().addRange(startCommitId, endCommitId).call();
 
     return extractJiraIssues(pattern, commits);
+  }
+
+  public static Map<String, String> getPomFilesFromCommits(Repository repository, List<String> versionTagList) throws
+    IOException,
+    GitAPIException {
+    final Git git = new Git(repository);
+    System.out.println(String.format("---> Extracting pom files from %s", git));
+
+    List<RevCommit> commits = new ArrayList<RevCommit>();
+    Map<String, String> pomFiles = new HashMap<String, String>();
+    for (final String versionTag : versionTagList) {
+      System.out.println(String.format("\t===> for version tag: %s", versionTag));
+      final RevCommit commit = resolveCommitIdByTagName(repository, versionTag);
+      commits.add(commit);
+
+      if (commit == null) {
+        throw new IOException("cannot getPomFilesFromCommits by  " + versionTag);
+      }
+
+      TreeWalk treeWalk = null;
+      try {
+        treeWalk = new TreeWalk(repository);
+        treeWalk.addTree(commit.getTree());
+        treeWalk.setRecursive(true);
+        treeWalk.setFilter(PathFilter.create("pom.xml"));
+        if (!treeWalk.next()) {
+          throw new IllegalStateException("Did not find expected file 'pom.xml'");
+        }
+
+        final ObjectId objectId = treeWalk.getObjectId(0);
+        final ObjectLoader loader = repository.open(objectId);
+
+        pomFiles.put(versionTag, new String(IO.readWholeStream(loader.openStream(), (int) loader.getSize()).array()));
+
+      } finally {
+        if (treeWalk != null) {
+          treeWalk.close();
+        }
+      }
+    }
+
+    return pomFiles;
   }
 
   public static LinkedHashMap<String, Set<String>> extractJiraIssuesByVersion(Repository repository,
