@@ -55,9 +55,10 @@ public class CloudServiceChangelogRenderer extends AbstractMavenReportRenderer {
       final StringWriter sw = new StringWriter();
       IOUtils.copy(markdownStream, sw);
       sink.paragraph();
-      final String changelogMarkdownString = sw.toString();
-      sink.text(changelogMarkdownString);
       sink.paragraph_();
+
+      final String changelogMarkdownString = sw.toString();
+      sink.rawText(changelogMarkdownString);
 
       final Matcher matcher = findJiraIssueId.matcher(changelogMarkdownString);
       final StringBuilder sb = new StringBuilder();

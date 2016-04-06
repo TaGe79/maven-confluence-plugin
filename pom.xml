@@ -4,7 +4,7 @@
   <groupId>org.bsc.maven</groupId>
   <artifactId>maven-confluence-parent</artifactId>
   <packaging>pom</packaging>
-  <version>4.6</version>
+  <version>4.6.1-SNAPSHOT</version>
   <name>CONFLUENCE-REPORTING::Parent - ${project.version}</name>
   <description><![CDATA[
     Maven's plugin that allow to generate "project's documentation" directly to confluence allowing, in the same time, to keep in-sync both project & documentation
@@ -58,9 +58,9 @@
   </distributionManagement>
   <properties>
     <release.repo.id>sonatype-server</release.repo.id>
+    <snapshot.repo.id>sonatype-server</snapshot.repo.id>
     <release.repo.url>http://gd0srv35:8081/nexus/content/repositories/releases/</release.repo.url>
     <snapshot.repo.url>http://gd0srv35:8081/nexus/content/repositories/snapshots/</snapshot.repo.url>
-    <snapshot.repo.id>sonatype-server</snapshot.repo.id>
     <pluginToolsVersion>3.4</pluginToolsVersion>
     <addTimestamp>true</addTimestamp>
     <mavenVersion>3.0.1</mavenVersion>
