@@ -121,7 +121,6 @@
                         <artifactId>doxia-module-markdown</artifactId>
                         <version>1.6</version>
                     </dependency>
-
                 </dependencies>
                 <configuration>
                     <reportPlugins>
@@ -160,6 +159,12 @@
             <version>${project.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>at.merkur.pos.infrastructure</groupId>
+            <artifactId>cloud-changelog-collector</artifactId>
+            <version>0.1.0-SNAPSHOT</version>
+        </dependency>
+        
         <!--
         =================================
         NEEDS FOR PASSWORD ENCRYPTION

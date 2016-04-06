@@ -637,7 +637,12 @@ public abstract class ToConfluenceSerializer implements Visitor {
 
     @Override
     public void visit(SimpleNode sn) {
-        notImplementedYet(sn);
+        _buffer.append('\n');
+        for (Node child : sn.getChildren()) {
+            child.accept(this);
+            _buffer.append('\n');
+        }
+//        notImplementedYet(sn);
     }
 
     @Override

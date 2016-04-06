@@ -38,7 +38,7 @@ public class Site {
      * @param is
      * @return 
      */
-    private static java.io.InputStream processMarkdown( final java.io.InputStream is ) throws IOException {
+    public static java.io.InputStream processMarkdown(final java.io.InputStream is) throws IOException {
         System.out.println("Processing markdown file");
 
         final char[] contents = IOUtils.toCharArray(is);

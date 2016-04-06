@@ -32,6 +32,7 @@ import org.apache.maven.tools.plugin.generator.GeneratorUtils;
 import org.apache.maven.tools.plugin.scanner.MojoScanner;
 import org.bsc.maven.plugin.confluence.ConfluenceUtils;
 import org.bsc.maven.reporting.model.Site;
+import org.bsc.maven.reporting.renderer.CloudServiceChangelogRenderer;
 import org.bsc.maven.reporting.renderer.DependenciesRenderer;
 import org.bsc.maven.reporting.renderer.GitLogJiraIssuesRenderer;
 import org.bsc.maven.reporting.renderer.ProjectSummaryRenderer;
@@ -59,6 +60,7 @@ import java.util.Set;
 public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
 
   private static final String POS_SERVICE_DEPENDENCIES = "pos.service.dependencies";
+  private static final String POS_CLOUD_CHANGELOG = "pos.cloud.changelog";
   private static final String PROJECT_DEPENDENCIES_VAR = "project.dependencies";
   private static final String PROJECT_SCM_MANAGER_VAR = "project.scmManager";
   private static final String PROJECT_SUMMARY_VAR = "project.summary";
@@ -355,35 +357,44 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
       posServiceVersionRenderer.render();
 
       replaceMacroNameWithContent(t, w, POS_SERVICE_DEPENDENCIES);
+
+      {
+        final StringWriter _w = new StringWriter(10*1024);
+        final Sink _sink = new ConfluenceSink(_w);
+
+        final CloudServiceChangelogRenderer cloudChangelogRenderer = new CloudServiceChangelogRenderer(_sink,
+          posServiceVersionRenderer.getChangedServices(), getLog());
+
+        cloudChangelogRenderer.render();
+
+        replaceMacroNameWithContent(t, _w, POS_CLOUD_CHANGELOG);
+      }
+
     }
 
     /////////////////////////////////////////////////////////////////
     // CHANGELOG JIRA ISSUES
     /////////////////////////////////////////////////////////////////
     if (gitLogJiraIssuesEnable) {
+      final StringWriter w = new StringWriter(10*1024);
+      final Sink sink = new ConfluenceSink(w);
+      //final Sink sink = getSink();
+      String currentVersion = project.getVersion();
 
-      {
+      GitLogJiraIssuesRenderer gitLogJiraIssuesRenderer = new GitLogJiraIssuesRenderer(sink,
+        gitLogSinceTagName,
+        gitLogUntilTagName,
+        gitLogJiraProjectKeyList,
+        currentVersion,
+        gitLogCalculateRuleForSinceTagName,
+        gitLogTagNamesPattern,
+        gitLogGroupByVersions,
+        getLog());
+      gitLogJiraIssuesRenderer.render();
 
-        final StringWriter w = new StringWriter(10*1024);
-        final Sink sink = new ConfluenceSink(w);
-        //final Sink sink = getSink();
-        String currentVersion = project.getVersion();
+      gitLogSinceTagName = gitLogJiraIssuesRenderer.getGitLogSinceTagName();
 
-        GitLogJiraIssuesRenderer gitLogJiraIssuesRenderer = new GitLogJiraIssuesRenderer(sink,
-          gitLogSinceTagName,
-          gitLogUntilTagName,
-          gitLogJiraProjectKeyList,
-          currentVersion,
-          gitLogCalculateRuleForSinceTagName,
-          gitLogTagNamesPattern,
-          gitLogGroupByVersions,
-          getLog());
-        gitLogJiraIssuesRenderer.render();
-
-        gitLogSinceTagName = gitLogJiraIssuesRenderer.getGitLogSinceTagName();
-
-        replaceMacroNameWithContent(t, w, GITLOG_JIRA_ISSUES_VAR);
-      }
+      replaceMacroNameWithContent(t, w, GITLOG_JIRA_ISSUES_VAR);
 
       try {
         if (gitLogSinceTagName == null) {
