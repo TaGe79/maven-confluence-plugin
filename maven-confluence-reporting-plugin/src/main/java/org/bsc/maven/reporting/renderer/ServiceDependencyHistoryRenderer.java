@@ -3,6 +3,7 @@ package org.bsc.maven.reporting.renderer;
 import com.github.qwazer.mavenplugins.gitlog.GitLogUtil;
 import org.apache.commons.io.IOUtils;
 import org.apache.maven.doxia.sink.Sink;
+import org.apache.maven.doxia.util.HtmlTools;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
@@ -33,6 +34,7 @@ public class ServiceDependencyHistoryRenderer extends AbstractMavenReportRendere
   private String gitLogSinceTagName;
   private MavenProject rootProject;
   private Properties serviceDocumentationMap;
+  private Set<String> changedServices = null;
 
   /**
    * Default constructor.
@@ -48,17 +50,41 @@ public class ServiceDependencyHistoryRenderer extends AbstractMavenReportRendere
     this.serviceDocumentationMap = serviceDocumentationMap;
   }
 
-  private void formatPomFilesToString(Map<String, String> pomFiles) throws IOException,
+  private Set<String> formatPomFilesToString(Map<String, String> pomFiles) throws IOException,
     XmlPullParserException {
 
-    startSection("Cloud Dependency History");
+    sink.section2();
+    sink.sectionTitle2();
+    final String chapterName = "Cloud Dependency History";
+    sink.text(chapterName);
+    sink.sectionTitle2_();
+    this.sink.anchor(HtmlTools.encodeId(chapterName));
+    this.sink.anchor_();
+
     final Set<String> tableHeader = new HashSet<String>();
     final Map<String, Map<String, String>> versionDeps = new HashMap<String, Map<String, String>>();
     final ArrayList<String> cloudVersions = new ArrayList<String>(pomFiles.keySet());
     Collections.sort(cloudVersions, new Comparator<String>() {
       @Override
       public int compare(final String o1, final String o2) {
-        return o2.compareTo(o1);
+        final String[] o1VersionString = o1.replace("cloud-pom-", "").split("\\.");
+        final String[] o2VersionString = o2.replace("cloud-pom-", "").split("\\.");
+        final int major = Integer.parseInt(o2VersionString[0]) - Integer.parseInt(o1VersionString[0]);
+        if (major != 0) {
+          return major;
+        }
+
+        final int minor = Integer.parseInt(o2VersionString[1]) - Integer.parseInt(o1VersionString[1]);
+        if (minor != 0) {
+          return minor;
+        }
+
+        final int rev = Integer.parseInt(o2VersionString[2]) - Integer.parseInt(o1VersionString[2]);
+        if (rev != 0) {
+          return rev;
+        }
+
+        return 0;
       }
     });
 
@@ -105,10 +131,14 @@ public class ServiceDependencyHistoryRenderer extends AbstractMavenReportRendere
     tableHeader(headList.toArray(new String[]{}));
 
     final Map<String, String> artifactVersionsBuffer = new HashMap<String, String>();
+    final String actualVersion = cloudVersions.get(0);
+    log.info(String.format("Latest cloud version should be: %s", actualVersion));
+    final Set<String> changedServices = new HashSet<String>();
 
     for (final String cloudVersion : cloudVersions) {
       final Map<String, String> cloudDependencies = versionDeps.get(cloudVersion);
       if (cloudDependencies == null) {
+        log.info(String.format("No dependencies found for cloud version: %s", cloudVersion));
         continue;
       }
       final List<String> tableRow = new ArrayList<String>(tableHeader.size());
@@ -118,6 +148,10 @@ public class ServiceDependencyHistoryRenderer extends AbstractMavenReportRendere
         final String lastVersion = artifactVersionsBuffer.get(dependencyArtifactId);
         if (version != null && !version.equals(lastVersion)) {
           tableRow.add(" {color:red}" + version + "{color} ");
+          if (cloudVersion.equals(actualVersion)) {
+            changedServices.add(dependencyArtifactId);
+            log.info(String.format("CLOUD %s - Service changed: %s", cloudVersion, dependencyArtifactId));
+          }
           artifactVersionsBuffer.put(dependencyArtifactId, version);
         } else {
           tableRow.add(version == null ? "---" : version);
@@ -127,7 +161,9 @@ public class ServiceDependencyHistoryRenderer extends AbstractMavenReportRendere
     }
     endTable();
 
-    endSection();
+    sink.section2_();
+
+    return changedServices;
   }
 
   private void decorateArtifactNamesWithConfluenceDocLink(final ArrayList<String> headList) {
@@ -213,11 +249,14 @@ public class ServiceDependencyHistoryRenderer extends AbstractMavenReportRendere
     log.info(String.format("Found %d POM Files", pomFiles.size()));
 
     try {
-      formatPomFilesToString(pomFiles);
+      this.changedServices = formatPomFilesToString(pomFiles);
     } catch (Exception ex) {
       ex.printStackTrace();
       sink.rawText("ERROR: " + ex.getMessage());
     }
   }
 
+  public Set<String> getChangedServices() {
+    return this.changedServices;
+  }
 }
