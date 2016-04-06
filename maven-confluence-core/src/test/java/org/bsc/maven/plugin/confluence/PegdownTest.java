@@ -1,11 +1,7 @@
 package org.bsc.maven.plugin.confluence;
 
-import org.bsc.markdown.ToConfluenceSerializer;
-import java.io.IOException;
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
 import org.apache.commons.io.IOUtils;
+import org.bsc.markdown.ToConfluenceSerializer;
 import org.junit.Test;
 import org.pegdown.PegDownProcessor;
 import org.pegdown.ast.AnchorLinkNode;
@@ -16,6 +12,11 @@ import org.pegdown.ast.RootNode;
 import org.pegdown.ast.StrongEmphSuperNode;
 import org.pegdown.ast.VerbatimNode;
 import org.pegdown.ast.Visitor;
+
+import java.io.IOException;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 
 /*
  * To change this license header, choose License Headers in Project Properties.
@@ -211,7 +212,7 @@ public class PegdownTest {
 
         final PegDownProcessor p = new PegDownProcessor(ToConfluenceSerializer.extensions());
 
-        final RootNode root = p.parseMarkdown(loadResource(FILE));
+        final RootNode root = p.parseMarkdown(loadResource(FILE0));
 
         ToConfluenceSerializer ser =  new ToConfluenceSerializer() {
 
