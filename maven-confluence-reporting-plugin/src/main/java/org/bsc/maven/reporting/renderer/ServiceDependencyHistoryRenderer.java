@@ -30,6 +30,47 @@ import java.util.Set;
  */
 public class ServiceDependencyHistoryRenderer extends AbstractMavenReportRenderer {
 
+  private static final class CloudPomVersionComparator implements Comparator<String> {
+    private final int ASC = -1;
+    private final int DESC = 1;
+
+    private final int direction;
+
+    private CloudPomVersionComparator(boolean descending) {
+      this.direction = descending ? DESC : ASC;
+    }
+
+    @Override
+    public int compare(final String o1, final String o2) {
+      final String[] o1VersionString = o1.replace("cloud-pom-", "").split("\\.");
+      final String[] o2VersionString = o2.replace("cloud-pom-", "").split("\\.");
+      final int major = Integer.parseInt(o2VersionString[0]) - Integer.parseInt(o1VersionString[0]);
+      if (major != 0) {
+        return direction*major;
+      }
+
+      final int minor = Integer.parseInt(o2VersionString[1]) - Integer.parseInt(o1VersionString[1]);
+      if (minor != 0) {
+        return direction*minor;
+      }
+
+      final int rev = Integer.parseInt(o2VersionString[2]) - Integer.parseInt(o1VersionString[2]);
+      if (rev != 0) {
+        return direction*rev;
+      }
+
+      return 0;
+    }
+
+    public static CloudPomVersionComparator ASC() {
+      return new CloudPomVersionComparator(false);
+    }
+
+    public static CloudPomVersionComparator DESC() {
+      return new CloudPomVersionComparator(true);
+    }
+  }
+
   private final Log log;
   private String gitLogSinceTagName;
   private MavenProject rootProject;
@@ -64,29 +105,7 @@ public class ServiceDependencyHistoryRenderer extends AbstractMavenReportRendere
     final Set<String> tableHeader = new HashSet<String>();
     final Map<String, Map<String, String>> versionDeps = new HashMap<String, Map<String, String>>();
     final ArrayList<String> cloudVersions = new ArrayList<String>(pomFiles.keySet());
-    Collections.sort(cloudVersions, new Comparator<String>() {
-      @Override
-      public int compare(final String o1, final String o2) {
-        final String[] o1VersionString = o1.replace("cloud-pom-", "").split("\\.");
-        final String[] o2VersionString = o2.replace("cloud-pom-", "").split("\\.");
-        final int major = Integer.parseInt(o2VersionString[0]) - Integer.parseInt(o1VersionString[0]);
-        if (major != 0) {
-          return major;
-        }
-
-        final int minor = Integer.parseInt(o2VersionString[1]) - Integer.parseInt(o1VersionString[1]);
-        if (minor != 0) {
-          return minor;
-        }
-
-        final int rev = Integer.parseInt(o2VersionString[2]) - Integer.parseInt(o1VersionString[2]);
-        if (rev != 0) {
-          return rev;
-        }
-
-        return 0;
-      }
-    });
+    Collections.sort(cloudVersions, CloudPomVersionComparator.ASC());
 
     for (final String cloudVersion : cloudVersions) {
       final String pomFile = pomFiles.get(cloudVersion);
@@ -130,10 +149,13 @@ public class ServiceDependencyHistoryRenderer extends AbstractMavenReportRendere
     headList.add(0, "Cloud version");
     tableHeader(headList.toArray(new String[]{}));
 
+    // Iterate from oldest to current cloud versions
     final Map<String, String> artifactVersionsBuffer = new HashMap<String, String>();
-    final String actualVersion = cloudVersions.get(0);
+    final String actualVersion = cloudVersions.get(cloudVersions.size() - 1);
     log.info(String.format("Latest cloud version should be: %s", actualVersion));
     final Set<String> changedServices = new HashSet<String>();
+
+    final Map<String, List<String>> completeTableRows = new HashMap<String, List<String>>(cloudVersions.size());
 
     for (final String cloudVersion : cloudVersions) {
       final Map<String, String> cloudDependencies = versionDeps.get(cloudVersion);
@@ -157,7 +179,17 @@ public class ServiceDependencyHistoryRenderer extends AbstractMavenReportRendere
           tableRow.add(version == null ? "---" : version);
         }
       }
-      tableRow(tableRow.toArray(new String[]{}));
+      completeTableRows.put(cloudVersion, tableRow);
+    }
+
+    // Display from current to oldest cloud versions
+    Collections.sort(cloudVersions, CloudPomVersionComparator.DESC());
+    for (final String cloudVersion : cloudVersions) {
+      final List<String> strings = completeTableRows.get(cloudVersion);
+      if (strings == null) {
+        continue;
+      }
+      tableRow(strings.toArray(new String[]{}));
     }
     endTable();
 
