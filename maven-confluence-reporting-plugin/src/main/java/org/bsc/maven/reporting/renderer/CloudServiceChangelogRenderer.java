@@ -13,11 +13,15 @@ import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  *
  */
 public class CloudServiceChangelogRenderer extends AbstractMavenReportRenderer {
+
+  static final Pattern findJiraIssueId = Pattern.compile("(\\[[A-Z]{4}-[0-9]{3,4}\\])");
 
   private final Set<String> changedArtifactIds;
   private final Log log;
@@ -51,9 +55,21 @@ public class CloudServiceChangelogRenderer extends AbstractMavenReportRenderer {
       final StringWriter sw = new StringWriter();
       IOUtils.copy(markdownStream, sw);
       sink.paragraph();
-      sink.text(sw.toString());
+      final String changelogMarkdownString = sw.toString();
+      sink.text(changelogMarkdownString);
       sink.paragraph_();
 
+      final Matcher matcher = findJiraIssueId.matcher(changelogMarkdownString);
+      final StringBuilder sb = new StringBuilder();
+      sb.append("----\n");
+      sb.append("h2. Mentioned Jira Issues\n");
+      log.info("Collecting jira issues from changelog");
+      while (matcher.find()) {
+        final String jiraKey = matcher.group().replace("[", "").replace("]", "");
+        log.info("+ " + jiraKey);
+        sb.append("{jira:").append(jiraKey).append("}\\\\\n");
+      }
+      sink.rawText(sb.toString());
     } catch (Exception e) {
       e.printStackTrace();
     }

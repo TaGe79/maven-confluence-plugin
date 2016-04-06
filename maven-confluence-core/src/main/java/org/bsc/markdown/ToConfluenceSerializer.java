@@ -180,7 +180,10 @@ public abstract class ToConfluenceSerializer implements Visitor {
                     element = "tip"; // SET ELEMENT TAG
                     return true;
                 }
-
+                if ("jira:".equalsIgnoreCase(p.getText())) {
+                    element = "jira"; // SET ELEMENT TAG
+                    return true;
+                }
 
                 return false;
             }
