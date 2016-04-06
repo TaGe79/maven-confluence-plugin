@@ -136,7 +136,6 @@ public class DependenciesRenderer extends AbstractMavenReportRenderer {
         tableRow(getArtifactRow(artifact));
       }
       endTable();
-
     }
   }
 

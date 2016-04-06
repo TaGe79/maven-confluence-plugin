@@ -58,9 +58,9 @@
   </distributionManagement>
   <properties>
     <release.repo.id>sonatype-server</release.repo.id>
-    <snapshot.repo.id>sonatype-server</snapshot.repo.id>
     <release.repo.url>http://gd0srv35:8081/nexus/content/repositories/releases/</release.repo.url>
     <snapshot.repo.url>http://gd0srv35:8081/nexus/content/repositories/snapshots/</snapshot.repo.url>
+    <snapshot.repo.id>sonatype-server</snapshot.repo.id>
     <pluginToolsVersion>3.4</pluginToolsVersion>
     <addTimestamp>true</addTimestamp>
     <mavenVersion>3.0.1</mavenVersion>

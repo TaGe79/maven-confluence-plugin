@@ -242,22 +242,16 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
       if (!_labels.isEmpty()) {
         site.getLabels().addAll(_labels);
       }
-    } else
 
-    {
+    } else {
       site = super.createFromFolder();
 
     }
-
     site.print(System.out);
 
     super.initTemplateProperties();
 
-    if (project.getPackaging().
-
-      equals("maven-plugin")
-
-      )
+    if (project.getPackaging().equals("maven-plugin"))
 
     /////////////////////////////////////////////////////////////////
     // PLUGIN
@@ -645,7 +639,6 @@ public class ConfluenceDeployMojo extends AbstractConfluenceSiteMojo {
           generator.execute(outputDirectory, request);
 
           for (String label : site.getHome().getComputedLabels()) {
-
             confluence.addLabelByName(label, Long.parseLong(confluencePage.getId()));
           }
 
