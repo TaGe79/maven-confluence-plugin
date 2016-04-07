@@ -345,7 +345,7 @@ public abstract class ToConfluenceSerializer implements Visitor {
              .append('\n')
              .append( text )
              .append('\n')
-             .append( "{quote}" )
+             .append("{quote}")
              .append('\n');
 
     }
@@ -370,28 +370,27 @@ public abstract class ToConfluenceSerializer implements Visitor {
         if( lines.length == 1 ) {
             _buffer.append( "{noformat}")
                    .append(vn.getText())
-                   .append( "{noformat}");
+                   .append("{noformat}")
+                   .append('\n');
             return;
         }
 
         if( vn.getType()==null || vn.getType().isEmpty() ) {
             _buffer.append( "{noformat}")
-                    .append('\n')
-                    .append(vn.getText())
-                    .append('\n')
-                    .append( "{noformat}")
-                    .append('\n')
-                    ;
+                   .append('\n')
+                   .append(vn.getText())
+                   .append('\n')
+                   .append("{noformat}")
+                   .append('\n');
             return;
         }
 
         _buffer.append( format("{code:%s}", vn.getType()) )
-                .append('\n')
-                .append(vn.getText())
-                .append('\n')
-                .append( "{code}")
-                .append('\n')
-                ;
+               .append('\n')
+               .append(vn.getText())
+               .append('\n')
+               .append("{code}")
+               .append('\n');
     }
 
     @Override
@@ -401,17 +400,17 @@ public abstract class ToConfluenceSerializer implements Visitor {
         if( lines.length == 1 ) {
             _buffer.append( "{{")
                    .append(cn.getText())
-                   .append( "}}");
+                   .append("}}")
+                   .append('\n');
             return;
         }
 
         _buffer
-            .append( "{code}")
-            .append('\n')
-            .append(cn.getText())
-            .append( "{code}")
-            .append('\n')
-            ;
+          .append("{code}")
+          .append('\n')
+          .append(cn.getText())
+          .append("{code}")
+          .append('\n');
     }
 
     @Override
