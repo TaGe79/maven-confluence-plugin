@@ -67,6 +67,9 @@ public class GitLogUtil {
     }
     RevCommit revCommit = null;
     Map<String, Ref> tagMap = repository.getTags();
+    for (final String tag : tagMap.keySet()) {
+      System.out.println("GIT: " + tag);
+    }
     Ref ref = tagMap.get(tagName);
     if (ref != null) {
       RevWalk walk = new RevWalk(repository);
