@@ -17,6 +17,7 @@ import org.eclipse.jgit.util.IO;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -116,7 +117,10 @@ public class GitLogUtil {
     System.out.println(String.format("---> Extracting jira issues from %s [%s - %s]", git, sinceTagName, untilTagName));
     RevCommit startCommitId = resolveCommitIdByTagName(repository, sinceTagName);
     if (startCommitId == null) {
-      throw new IOException("cannot resolveCommitIdByTagName by  " + sinceTagName);
+//      throw new IOException("cannot resolveCommitIdByTagName by  " + sinceTagName);
+      System.out.println(String.format("Can not find any commits to tag (might be not available in your local repo): " +
+                                       "%s", sinceTagName));
+      return Collections.emptySet();
     }
     ObjectId endCommitId = resolveCommitIdByTagName(repository, untilTagName);
     if (endCommitId == null) {
